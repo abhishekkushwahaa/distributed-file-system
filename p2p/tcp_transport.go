@@ -8,56 +8,48 @@ import (
 )
 
 // TCPPeer represents the remote node over a TCP established connection
-type TCPPeer struct{
-	conn net.Conn
-	
+type TCPPeer struct {
+	net.Conn
+
 	// if we dial and retrieve a conn => outbound == true
 	// if we accept and retrieve a conn => outbound == false
 	outbound bool
 }
 
-func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer{
+func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
-		conn: conn,
+		Conn:     conn,
 		outbound: outbound,
 	}
-} 
+}
 
 func (p *TCPPeer) Send(b []byte) error {
-	_, err := p.conn.Write(b)
+	_, err := p.Conn.Write(b)
 	return err
 }
 
-func (p *TCPPeer) RemoteAddr() net.Addr {
-	return p.conn.RemoteAddr()
-}
-
-func (p *TCPPeer) Close() error {
-	return p.conn.Close()
-}
-
 type TCPTransportOpts struct {
-	ListenAddr string
+	ListenAddr    string
 	HandshakeFunc HandshakeFunc
-	Decoder Decoder
-	OnPeer  func(Peer) error
+	Decoder       Decoder
+	OnPeer        func(Peer) error
 }
 
 type TCPTransport struct {
 	TCPTransportOpts
 	listener net.Listener
-	rpcch chan RPC
+	rpcch    chan RPC
 }
 
-func NewTCPTransport(opts TCPTransportOpts) *TCPTransport{
+func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
-		rpcch: make(chan RPC),
+		rpcch:            make(chan RPC),
 	}
 }
 
 // Consume implements the Transport interface, which will return read-only channel for reading incoming messages
-func (t *TCPTransport) Consume() <- chan RPC {
+func (t *TCPTransport) Consume() <-chan RPC {
 	return t.rpcch
 }
 
@@ -66,7 +58,7 @@ func (t *TCPTransport) Close() error {
 }
 
 func (t *TCPTransport) Dial(addr string) error {
-	conn, err := net.Dial("tcp", addr);
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		return err
 	}
@@ -75,7 +67,7 @@ func (t *TCPTransport) Dial(addr string) error {
 	return nil
 }
 
-func (t *TCPTransport) ListenAndAccept() error{
+func (t *TCPTransport) ListenAndAccept() error {
 	var err error
 
 	listener, err := net.Listen("tcp", t.ListenAddr)
@@ -91,10 +83,10 @@ func (t *TCPTransport) ListenAndAccept() error{
 	return nil
 }
 
-func (t *TCPTransport) startAcceptLoop(){
+func (t *TCPTransport) startAcceptLoop() {
 	for {
 		conn, err := t.listener.Accept()
-		if errors.Is(err, net.ErrClosed){
+		if errors.Is(err, net.ErrClosed) {
 			return
 		}
 		if err != nil {
@@ -104,18 +96,18 @@ func (t *TCPTransport) startAcceptLoop(){
 	}
 }
 
-func (t *TCPTransport) handleConn(conn net.Conn, outbound bool){
+func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	var err error
 
-	defer func ()  {
-		fmt.Printf("Dropping peer connection: %s", err)	
+	defer func() {
+		fmt.Printf("Dropping peer connection: %s", err)
 		conn.Close()
 	}()
 
 	peer := NewTCPPeer(conn, outbound)
 
-	if err = t.HandshakeFunc(peer); err != nil{
-		return 
+	if err = t.HandshakeFunc(peer); err != nil {
+		return
 	}
 
 	if t.OnPeer != nil {
@@ -124,11 +116,10 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool){
 		}
 	}
 
-
 	// Read loop
 	rpc := RPC{}
 	for {
-		err = t.Decoder.Decode(conn, &rpc);
+		err = t.Decoder.Decode(conn, &rpc)
 		if err != nil {
 			return
 		}
