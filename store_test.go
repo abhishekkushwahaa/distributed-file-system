@@ -15,7 +15,7 @@ func TestPathTranformFunc(t *testing.T) {
 	if pathKey.PathName != expectedPathName {
 		t.Errorf("have %s want %s", pathKey.PathName, expectedPathName)
 	}
-	if pathKey.Filename !=  expectedFilename {
+	if pathKey.Filename != expectedFilename {
 		t.Errorf("have %s want %s", pathKey.Filename, expectedFilename)
 	}
 }
@@ -44,38 +44,38 @@ func TestStore(t *testing.T) {
 
 	for i := 0; i < 50; i++ {
 
-	key := fmt.Sprintf("foo_%d", i)
-	data := []byte("Some jpg bytes")
+		key := fmt.Sprintf("foo_%d", i)
+		data := []byte("Some jpg bytes")
 
-	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
-		t.Error(err)
+		if _, err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+			t.Error(err)
+		}
+
+		if ok := s.Has(key); !ok {
+			t.Errorf("expected to have key %s", key)
+		}
+
+		r, err := s.Read(key)
+		if err != nil {
+			t.Error(err)
+		}
+
+		b, _ := ioutil.ReadAll(r)
+
+		if string(b) != string(data) {
+			t.Errorf("want %s have %s", data, b)
+		}
+
+		fmt.Println(string(b))
+
+		if err := s.Delete(key); err != nil {
+			t.Error(err)
+		}
+
+		if ok := s.Has(key); ok {
+			t.Errorf("expected to not have key %s", key)
+		}
 	}
-
-	if ok := s.Has(key); !ok {
-		t.Errorf("expected to have key %s", key)
-	}
-
-	r, err := s.Read(key)
-	if err != nil {
-		t.Error(err)
-	}
-
-	b, _ := ioutil.ReadAll(r)
-
-	if string(b) != string(data) {
-		t.Errorf("want %s have %s", data, b)
-	}
-
-	fmt.Println(string(b))
-
-	if err := s.Delete(key); err != nil {
-		t.Error(err)
-	}
-
-	if ok := s.Has(key); ok {
-		t.Errorf("expected to not have key %s", key)
-	}
-}
 }
 
 func newStore() *Store {
