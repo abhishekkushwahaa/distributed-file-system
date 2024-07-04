@@ -56,7 +56,7 @@ func main() {
 			log.Fatalf("Failed to store file on s2: %v", err)
 		}
 
-		// if err := s3.store.Delete(key); err != nil {
+		// if err := s3.store.Delete(s3.ID, key); err != nil {
 		// 	log.Fatal(err)
 		// }
 

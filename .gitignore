@@ -3,3 +3,4 @@ go.sum
 *.env
 bin*
 _*
+*ggnetwork
