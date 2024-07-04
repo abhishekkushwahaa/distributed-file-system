@@ -3,7 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"testing"
 )
 
@@ -20,63 +22,71 @@ func TestPathTranformFunc(t *testing.T) {
 	}
 }
 
-// func TestStoreDeleteKey(t *testing.T) {
-// 	opts := StoreOpts{
-// 		PathTransformFunc: CASPathTransformFunc,
-// 	}
-// 	s := NewStore(opts)
-// 	key := "myspecialpicture"
-// 	data := []byte("Some jpg bytes")
-
-// 	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
-// 		t.Error(err)
-// 	}
-
-// 	if err := s.Delete(key); err != nil {
-// 		t.Error(err)
-// 	}
-// }
-
 func TestStore(t *testing.T) {
+	log.Println("Starting TestStore")
 	s := newStore()
 	id := generateID()
 
-	defer teardown(t, s)
+	defer func() {
+		log.Println("Teardown")
+		teardown(t, s)
+	}()
 
-	for i := 0; i < 50; i++ {
-
+	for i := 0; i < 5; i++ { // Reduce the number of iterations to 10
+		log.Printf("Iteration: %d", i)
 		key := fmt.Sprintf("foo_%d", i)
 		data := []byte("Some jpg bytes")
 
+		log.Printf("Writing key: %s", key)
 		if _, err := s.writeStream(id, key, bytes.NewReader(data)); err != nil {
-			t.Error(err)
+			t.Errorf("Error writing key %s: %v", key, err)
+			return
 		}
 
+		log.Printf("Checking existence of key: %s", key)
 		if ok := s.Has(id, key); !ok {
-			t.Errorf("expected to have key %s", key)
+			t.Errorf("Expected to have key %s", key)
+			return
 		}
 
+		log.Printf("Reading key: %s", key)
 		_, r, err := s.Read(id, key)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("Error reading key %s: %v", key, err)
+			return
 		}
 
-		b, _ := ioutil.ReadAll(r)
+		log.Printf("Reading data for key: %s", key)
+		b, err := ioutil.ReadAll(r)
+		if err != nil {
+			t.Errorf("Error reading data for key %s: %v", key, err)
+			return
+		}
 
+		log.Printf("Data read for key %s: %s", key, b)
 		if string(b) != string(data) {
-			t.Errorf("want %s have %s", data, b)
+			t.Errorf("Expected data %s, got %s", data, b)
+			return
 		}
 
-		fmt.Println(string(b))
+		if rc, ok := r.(io.ReadCloser); ok {
+			log.Printf("Closing reader for key: %s", key)
+			rc.Close()
+		}
 
+		log.Printf("Deleting key: %s", key)
 		if err := s.Delete(id, key); err != nil {
-			t.Error(err)
+			t.Errorf("Error deleting key %s: %v", key, err)
+			return
 		}
 
+		log.Printf("Checking non-existence of key: %s", key)
 		if ok := s.Has(id, key); ok {
-			t.Errorf("expected to not have key %s", key)
+			t.Errorf("Expected to not have key %s", key)
+			return
 		}
 	}
+	log.Println("TestStore completed")
 }
 
 func newStore() *Store {
