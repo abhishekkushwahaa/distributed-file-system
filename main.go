@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -39,10 +40,14 @@ func main() {
 		log.Fatal(s1.Start())
 	}()
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(2 * time.Second)
 
-	go s2.Start()
-	time.Sleep(4 * time.Second)
+	go func() {
+		err := s2.Start()
+		if err != nil {
+			log.Fatalf("Failed to start s2: %v", err)
+		}
+	}()
 
 	// for i := 0; i < 2; i++ {
 	// 	data := bytes.NewReader([]byte("my big data file here!"))
@@ -50,9 +55,14 @@ func main() {
 	// 	time.Sleep(time.Millisecond * 5)
 	// }
 
+	data := bytes.NewReader([]byte("Contents of naturePicture.jpg"))
+	if err := s2.Store("naturePicture.jpg", data); err != nil {
+		log.Fatalf("Failed to store file on s2: %v", err)
+	}
+
 	r, err := s2.Get("naturePicture.jpg")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to get naturePicture.jpg: %v", err)
 	}
 
 	b, err := ioutil.ReadAll(r)
@@ -61,6 +71,4 @@ func main() {
 	}
 
 	fmt.Println(string(b))
-
-	select {}
 }
