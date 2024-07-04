@@ -106,7 +106,8 @@ func (s *FileServer) Get(key string) (io.Reader, error) {
 		go func(p2p.Peer) {
 			var fileSize int64
 			binary.Read(peer, binary.LittleEndian, &fileSize)
-			n, err := s.store.Write(key, io.LimitReader(peer, fileSize))
+
+			n, err := s.store.WriteDecrypt(s.EncKey, key, io.LimitReader(peer, fileSize))
 			if err != nil {
 				fmt.Printf("Error writing file from peer (%s): %v\n", peer.RemoteAddr(), err)
 				return
@@ -156,18 +157,17 @@ func (s *FileServer) Store(key string, r io.Reader) error {
 
 	time.Sleep(time.Millisecond * 5)
 
+	peers := []io.Writer{}
 	for _, peer := range s.peers {
-		peer.Send([]byte{p2p.IncomingStream})
-		n, err := copyEncrypt(s.EncKey, fileBuffer, peer)
-		if err != nil {
-			return err
-		}
-		// n, err := io.Copy(peer, fileBuffer)
-		// if err != nil {
-		// 	return err
-		// }
-		fmt.Println("Received and Written file to disk:", n)
+		peers = append(peers, peer)
 	}
+	mw := io.MultiWriter(peers...)
+	mw.Write([]byte{p2p.IncomingStream})
+	n, err := copyEncrypt(s.EncKey, fileBuffer, mw)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("[%s] received and written (%d) bytes file to disk:\n", s.Transport.Addr(), n)
 
 	return nil
 }
@@ -288,6 +288,7 @@ func (s *FileServer) bootsrapNetwork() error {
 }
 
 func (s *FileServer) Start() error {
+	fmt.Printf("[%s] starting fileserver...\n", s.Transport.Addr())
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		return err
 	}
